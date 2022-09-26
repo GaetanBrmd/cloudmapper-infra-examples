@@ -1,0 +1,12 @@
+**/.idea/
+**/.terraform
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfstate
+**/builds/**.json
+**/packages/**
+**/.infracost/**
+**/.DS_Store
+**/beanstalk/deploy/*.war
+**/utils/**
