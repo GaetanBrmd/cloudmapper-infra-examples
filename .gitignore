@@ -10,3 +10,4 @@
 **/.DS_Store
 **/beanstalk/deploy/*.war
 **/utils/**
+*.lock.info
