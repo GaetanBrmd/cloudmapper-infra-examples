@@ -247,7 +247,7 @@ resource "aws_instance" "instacesubb" {
 
 resource "aws_db_subnet_group" "default" {
   name       = "subnet group for rds"
-  subnet_ids = [aws_subnet.privatea.id,aws_subnet.privateb.id]
+  subnet_ids = [aws_subnet.private_nat_a.id,aws_subnet.private_nat_b.id]
 
   tags = {
     Name = "My DB private subnet group"
@@ -256,6 +256,7 @@ resource "aws_db_subnet_group" "default" {
 
 resource "aws_db_instance" "mysqldb" {
   allocated_storage    = 10
+  db_subnet_group_name =  aws_db_subnet_group.default.name
   db_name              = "mydb"
   engine               = "mysql"
   engine_version       = "5.7"
@@ -264,4 +265,98 @@ resource "aws_db_instance" "mysqldb" {
   password             = "foobarbaz"
   parameter_group_name = "default.mysql5.7"
   skip_final_snapshot  = true
+}
+
+resource "aws_eip" "nat_a" {
+  vpc   = true
+
+  tags = {
+    Name = "eip-nat"
+  }
+}
+
+resource "aws_eip" "nat_b" {
+  vpc   = true
+
+  tags = {
+    Name = "eip-nat"
+  }
+}
+
+resource "aws_nat_gateway" "defaultpublic_a" {
+  allocation_id = aws_eip.nat_a.id
+  subnet_id     = aws_subnet.publica.id
+
+  tags = {
+    Name = "nat-gateway-A"
+  }
+}
+
+resource "aws_nat_gateway" "defaultpublic_b" {
+  allocation_id = aws_eip.nat_b.id
+  subnet_id     = aws_subnet.publicb.id
+
+  tags = {
+    Name = "nat-gateway-B"
+  }
+}
+
+resource "aws_subnet" "private_nat_a" {
+  vpc_id                  = aws_vpc.default.id
+  map_public_ip_on_launch = false
+  cidr_block              = "10.10.0.64/28"
+  availability_zone       = "eu-west-3a"
+
+  tags = {
+    Name = "Private nat subnet zone A"
+  }
+}
+
+resource "aws_subnet" "private_nat_b" {
+  vpc_id                  = aws_vpc.default.id
+  map_public_ip_on_launch = false
+  cidr_block              = "10.10.0.80/28"
+  availability_zone       = "eu-west-3b"
+
+  tags = {
+    Name = "Private nat subnet zone B"
+  }
+}
+
+resource "aws_route_table" "private_nat_a" {
+  
+  vpc_id = aws_vpc.default.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.defaultpublic_a.id
+  }
+
+  tags = {
+    Name = "private_nat-rt-A"
+  }
+}
+
+resource "aws_route_table" "private_nat_b" {
+  
+  vpc_id = aws_vpc.default.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.defaultpublic_b.id
+  }
+
+  tags = {
+    Name = "private_nat-rt-B"
+  }
+}
+
+resource "aws_route_table_association" "private_nat_subnet_association_a" {
+  subnet_id      = aws_subnet.private_nat_a.id
+  route_table_id = aws_route_table.private_nat_a.id
+}
+
+resource "aws_route_table_association" "private_nat_subnet_association_b" {
+  subnet_id      = aws_subnet.private_nat_b.id
+  route_table_id = aws_route_table.private_nat_b.id
 }
