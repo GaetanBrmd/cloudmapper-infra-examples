@@ -25,10 +25,17 @@ resource "azurerm_virtual_network" "vn" {
 }
 
 resource "azurerm_subnet" "internal" {
-  name                 = "Subnet"
+  name                 = "Subnet-Instance"
   resource_group_name  = azurerm_resource_group.default.name
   virtual_network_name = azurerm_virtual_network.vn.name
   address_prefixes     = ["10.0.0.0/28"]
+}
+
+resource "azurerm_subnet" "internaldb" {
+  name                 = "Subnet-DB"
+  resource_group_name  = azurerm_resource_group.default.name
+  virtual_network_name = azurerm_virtual_network.vn.name
+  address_prefixes     = ["10.0.0.32/28"]
 }
 
 resource "azurerm_public_ip" "public_ip" {
@@ -53,8 +60,8 @@ resource "azurerm_lb_rule" "lbnatrule" {
    loadbalancer_id                = azurerm_lb.loadbalancer.id
    name                           = "http"
    protocol                       = "Tcp"
-   frontend_port                  = 80
-   backend_port                   = 80
+   frontend_port                  = 22
+   backend_port                   = 22
    backend_address_pool_ids        = [azurerm_lb_backend_address_pool.bepool.id]
    frontend_ip_configuration_name = "PublicIPAddress"
 }
@@ -149,4 +156,47 @@ resource "azurerm_linux_virtual_machine" "vm" {
   admin_password = "Password1234!"
   disable_password_authentication = false
 
+}
+
+resource "azurerm_mysql_server" "mysqlserver" {
+  name                = "mysqldb-server-ippon"
+  location            = azurerm_resource_group.default.location
+  resource_group_name = azurerm_resource_group.default.name
+
+  administrator_login          = "foo"
+  administrator_login_password = "IpponTechnologies12*"
+
+  sku_name   = "GP_Gen5_2"
+  storage_mb = 5120
+  version    = "5.7"
+
+  auto_grow_enabled                 = false
+  backup_retention_days             = 7
+  geo_redundant_backup_enabled      = false
+  infrastructure_encryption_enabled = false
+  public_network_access_enabled     = false
+  ssl_enforcement_enabled           = false
+  ssl_minimal_tls_version_enforced  = "TLSEnforcementDisabled"
+}
+
+resource "azurerm_mysql_database" "db" {
+  name                = "mysqldb"
+  resource_group_name = azurerm_resource_group.default.name
+  server_name         = azurerm_mysql_server.mysqlserver.name
+  charset             = "utf8"
+  collation           = "utf8_unicode_ci"
+}
+
+resource "azurerm_private_endpoint" "endpoint" {
+  name                = "DB-endpoint"
+  location            = azurerm_resource_group.default.location
+  resource_group_name = azurerm_resource_group.default.name
+  subnet_id           = azurerm_subnet.internaldb.id
+
+  private_service_connection {
+    name                           = "DB-private-connection"
+    private_connection_resource_id = azurerm_mysql_server.mysqlserver.id
+    subresource_names              = [ "mysqlServer" ]
+    is_manual_connection           = false
+  }
 }
