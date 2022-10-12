@@ -1,9 +1,12 @@
 terraform {
   required_version = ">=0.13"
-
   required_providers {
       aws = ">=2.0"
   }
+}
+
+provider "aws" {
+  region = "eu-west-3"
 }
 
 resource "aws_vpc" "default" {
